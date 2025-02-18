@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import csv
 import pandas as pd 
 from tqdm import tqdm 
+from jobspy import scrape_jobs
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -140,7 +141,46 @@ class NaukrigulfJobs:
         self.driver.quit()
 
 class LinkedinJobs: 
-    pass
+    def __init__(self,job_title,location):
+        self.title = [job_title] 
+        self.location = [location]
+        self.platform = ["LinkedIn"]
+        self.all_jobs = pd.DataFrame()
+    def fetch_listing(self,results_wanted=100): 
+        for job in self.title:
+            for country in self.location:
+                print(f"Scraping: {job} in {country}...")
+                jobs = scrape_jobs(
+                    site_name=self.platform,
+                    search_term=job,
+                    location=country,
+                    results_wanted=results_wanted,
+                )
+                jobs["Job Title"] = job
+                jobs["Country"] = self.location[0]
+                jobs["Platform"] = self.platform[0]
+                self.all_jobs = pd.concat([self.all_jobs, jobs], ignore_index=True)
+        return self.all_jobs
+    
 
 class IndeedJobs:
-    pass
+    def __init__(self,job_title,location):
+        self.title = [job_title] 
+        self.location = [location]
+        self.platform = ["indeed"]
+        self.all_jobs = pd.DataFrame()
+    def fetch_listing(self,result_wanted=100): 
+        for job in self.title:
+            for country in self.location:
+                print(f"Scraping: {job} in {country}...")
+                jobs = scrape_jobs(
+                    site_name=self.platform,
+                    search_term=job,
+                    location=country,
+                    results_wanted=result_wanted,
+                )
+                jobs["Job Title"] = job
+                jobs["Country"] = self.location[0]
+                jobs["Platform"] = self.platform[0]
+                self.all_jobs = pd.concat([self.all_jobs, jobs], ignore_index=True)
+        return self.all_jobs
