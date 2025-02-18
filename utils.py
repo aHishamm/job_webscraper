@@ -138,3 +138,9 @@ class NaukrigulfJobs:
 
     def close(self):
         self.driver.quit()
+
+class LinkedinJobs: 
+    pass
+
+class IndeedJobs:
+    pass
