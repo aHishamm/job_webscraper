@@ -1,3 +1,4 @@
+from typing import List, Dict, Optional, Any, Union
 import requests
 from bs4 import BeautifulSoup
 import csv
@@ -6,21 +7,38 @@ from tqdm import tqdm
 from jobspy import scrape_jobs
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import undetected_chromedriver as uc
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
-import pandas as pd
 import time
-from tqdm import tqdm
+
 class Bayt_jobs:
-    def __init__(self):
+    """
+    A class to scrape job listings from Bayt.com.
+    
+    Attributes:
+        base_url (str): The base URL for Bayt.com
+    """
+    
+    def __init__(self) -> None:
+        """Initialize Bayt_jobs with base URL."""
         self.base_url = "https://www.bayt.com"
 
-    def fetch_jobs(self, query, page=1):
+    def fetch_jobs(self, query: str, page: int = 1) -> Optional[List[Dict[str, str]]]:
+        """
+        Fetch job listings from Bayt.com based on search query.
+
+        Args:
+            query (str): Search term for jobs
+            page (int): Page number for pagination
+
+        Returns:
+            Optional[List[Dict[str, str]]]: List of job listings or None if error occurs
+        """
         try:
             formatted_query = query.replace(" ", "-").lower()  
             url = f"{self.base_url}/en/international/jobs/{formatted_query}-jobs/?page={page}"
@@ -43,9 +61,16 @@ class Bayt_jobs:
             print("Error:", e)
             return None
 
-    def __extract_job_info(self, job, search_query):
+    def __extract_job_info(self, job: BeautifulSoup, search_query: str) -> Optional[Dict[str, str]]:
         """
         Extracts job details from a job listing.
+
+        Args:
+            job (BeautifulSoup): BeautifulSoup object containing job listing
+            search_query (str): Original search query
+
+        Returns:
+            Optional[Dict[str, str]]: Dictionary containing job details or None if error occurs
         """
         try:
             job_general_information = job.find("h2")
@@ -70,13 +95,28 @@ class Bayt_jobs:
         except Exception as e:
             print("Error extracting job info:", e)
             return None
+
 class NaukrigulfJobs:
-    def __init__(self):
+    """A class to scrape job listings from Naukrigulf.com"""
+
+    def __init__(self) -> None:
+        """Initialize NaukrigulfJobs with Chrome driver"""
         self.driver = uc.Chrome()
         self.driver.maximize_window()
         self.base_url = "https://www.naukrigulf.com"
     
-    def fetch_jobs(self, query, orig, max_pages=10):
+    def fetch_jobs(self, query: str, orig: str, max_pages: int = 10) -> List[Dict[str, str]]:
+        """
+        Fetch job listings from Naukrigulf.com
+
+        Args:
+            query (str): Search query for jobs
+            orig (str): Original search term
+            max_pages (int): Maximum number of pages to scrape
+
+        Returns:
+            List[Dict[str, str]]: List of job listings
+        """
         jobs = []
         
         for page in range(1, max_pages + 1):
@@ -97,15 +137,23 @@ class NaukrigulfJobs:
             job_listings = self.driver.find_elements(By.CLASS_NAME, "ng-box.srp-tuple")
             
             for job in job_listings:
-                job_info = self.__extract_job_info(job, query,orig)
+                job_info = self.__extract_job_info(job, query, orig)
                 if job_info:
                     jobs.append(job_info)
             
         return jobs
-    
-    def __extract_job_info(self, job, search_query,orig):
+
+    def __extract_job_info(self, job: webdriver.remote.webelement.WebElement, search_query: str, orig: str) -> Optional[Dict[str, str]]:
         """
         Extract job details from a Selenium WebElement.
+
+        Args:
+            job (WebElement): Selenium WebElement containing job listing
+            search_query (str): Search query used
+            orig (str): Original search term
+
+        Returns:
+            Optional[Dict[str, str]]: Dictionary containing job details or None if error occurs
         """
         try:
             job_title_elem = job.find_element(By.CLASS_NAME, "designation-title")
@@ -137,16 +185,36 @@ class NaukrigulfJobs:
             print("Error extracting job info:", e)
             return None
 
-    def close(self):
+    def close(self) -> None:
+        """Close the Chrome driver"""
         self.driver.quit()
 
-class LinkedinJobs: 
-    def __init__(self,job_title,location):
-        self.title = [job_title] 
+class LinkedinJobs:
+    """A class to scrape job listings from LinkedIn"""
+
+    def __init__(self, job_title: str, location: str) -> None:
+        """
+        Initialize LinkedinJobs with job title and location.
+
+        Args:
+            job_title (str): Job title to search for
+            location (str): Location to search in
+        """
+        self.title = [job_title]
         self.location = [location]
         self.platform = ["LinkedIn"]
         self.all_jobs = pd.DataFrame()
-    def fetch_listing(self,results_wanted=100): 
+
+    def fetch_listing(self, results_wanted: int = 100) -> pd.DataFrame:
+        """
+        Fetch job listings from LinkedIn.
+
+        Args:
+            results_wanted (int): Number of results to fetch
+
+        Returns:
+            pd.DataFrame: DataFrame containing job listings
+        """
         for job in self.title:
             for country in self.location:
                 print(f"Scraping: {job} in {country}...")
@@ -161,15 +229,33 @@ class LinkedinJobs:
                 jobs["Platform"] = self.platform[0]
                 self.all_jobs = pd.concat([self.all_jobs, jobs], ignore_index=True)
         return self.all_jobs
-    
 
 class IndeedJobs:
-    def __init__(self,job_title,location):
-        self.title = [job_title] 
+    """A class to scrape job listings from Indeed"""
+
+    def __init__(self, job_title: str, location: str) -> None:
+        """
+        Initialize IndeedJobs with job title and location.
+
+        Args:
+            job_title (str): Job title to search for
+            location (str): Location to search in
+        """
+        self.title = [job_title]
         self.location = [location]
         self.platform = ["indeed"]
         self.all_jobs = pd.DataFrame()
-    def fetch_listing(self,result_wanted=100): 
+
+    def fetch_listing(self, result_wanted: int = 100) -> pd.DataFrame:
+        """
+        Fetch job listings from Indeed.
+
+        Args:
+            result_wanted (int): Number of results to fetch
+
+        Returns:
+            pd.DataFrame: DataFrame containing job listings
+        """
         for job in self.title:
             for country in self.location:
                 print(f"Scraping: {job} in {country}...")
