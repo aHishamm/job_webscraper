@@ -1,3 +1,8 @@
+import requests
+from bs4 import BeautifulSoup
+import csv
+import pandas as pd 
+from tqdm import tqdm 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -10,7 +15,60 @@ from selenium.webdriver.chrome.options import Options
 import pandas as pd
 import time
 from tqdm import tqdm
+class Bayt_jobs:
+    def __init__(self):
+        self.base_url = "https://www.bayt.com"
 
+    def fetch_jobs(self, query, page=1):
+        try:
+            formatted_query = query.replace(" ", "-").lower()  
+            url = f"{self.base_url}/en/international/jobs/{formatted_query}-jobs/?page={page}"
+            headers = {"User-Agent": "Mozilla/5.0"}
+            response = requests.get(url, headers=headers)
+
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            job_listings = soup.find_all("li", attrs={"data-js-job": ""}) 
+
+            jobs = []
+            for job in job_listings:
+                job_info = self.__extract_job_info(job, query)  
+                if job_info:
+                    jobs.append(job_info)
+
+            return jobs
+        except Exception as e:
+            print("Error:", e)
+            return None
+
+    def __extract_job_info(self, job, search_query):
+        """
+        Extracts job details from a job listing.
+        """
+        try:
+            job_general_information = job.find("h2")
+            job_title = job_general_information.get_text(strip=True) if job_general_information else None
+
+            job_url_tag = job_general_information.find("a") if job_general_information else None
+            job_url = self.base_url + job_url_tag["href"] if job_url_tag else None
+
+            company_tag = job.find("div", class_="t-nowrap p10l")
+            company_name = company_tag.find("span").get_text(strip=True) if company_tag and company_tag.find("span") else None
+
+            location_tag = job.find("div", class_="t-mute t-small")
+            job_location = location_tag.get_text(strip=True) if location_tag else None
+
+            return {
+                "search_query": search_query,  
+                "title": job_title,
+                "company": company_name,
+                "location": job_location,
+                "url": job_url,
+            }
+        except Exception as e:
+            print("Error extracting job info:", e)
+            return None
 class NaukrigulfJobs:
     def __init__(self):
         self.driver = uc.Chrome()
@@ -80,36 +138,3 @@ class NaukrigulfJobs:
 
     def close(self):
         self.driver.quit()
-
-scraper = NaukrigulfJobs()
-job_queries = [
-    "AI Engineer",
-    "Data Scientist",
-    "DevOps Engineer",
-    "UX/UI Designer",
-    "Cybersecurity Specialist",
-    "Digital Marketing Specialist",
-    "Social Media Marketing Specialist",
-    "E-commerce Manager",
-    "HR Manager",
-    "Healthcare Administrator"
-]
-
-df = pd.DataFrame(columns=["search_query", "title", "company", "location", "experience", "description", "url"])
-
-total_pages = len(job_queries) * 5  
-with tqdm(total=total_pages, desc="Scraping Naukrigulf Jobs", unit="page") as pbar:
-    for job_query in job_queries:
-        job_query_new = job_query.replace(" ", "-").lower() 
-        jobs_data = scraper.fetch_jobs(job_query_new,job_query, max_pages=5)
-        if jobs_data:
-            df = pd.concat([df, pd.DataFrame(jobs_data)], ignore_index=True)
-        pbar.update(10)  
-
-df["Platform"] = "Naukrigulf"
-
-df.to_excel("naukrigulf_jobs_selenium.xlsx", index=False)
-
-print("Jobs successfully saved in naukrigulf_jobs_selenium.xlsx.")
-
-scraper.close()
